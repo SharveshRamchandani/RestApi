@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: n8n-pop-worker
+  labels:
+    app: n8n-pop
+    component: worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: n8n-pop
+      component: worker
+  template:
+    metadata:
+      labels:
+        app: n8n-pop
+        component: worker
+    spec:
+      containers:
+      - name: worker
+        image: n8n-pop-worker:latest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: n8n-secrets
+              key: database-url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: n8n-secrets
+              key: redis-url
+        - name: YOUTUBE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: n8n-secrets
+              key: youtube-api-key

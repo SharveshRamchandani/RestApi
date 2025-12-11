@@ -1,0 +1,17 @@
+fastapi>=0.95.0
+uvicorn[standard]
+celery[redis]>=5.0.0
+redis>=4.0.0
+requests
+python-dotenv
+backoff
+sqlalchemy>=2.0.0
+asyncpg
+alembic
+pydantic>=2.0.0
+pytrends
+jinja2
+psycopg2-binary
+python-json-logger
+prometheus-client
+opensearch-py
