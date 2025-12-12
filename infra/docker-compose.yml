@@ -47,7 +47,8 @@ services:
       dockerfile: ingest/Dockerfile
     environment:
       - REDIS_URL=redis://redis:6379/0
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/n8n_pop
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/n8n_pop
+      - PYTHONPATH=/app
       - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
       - USE_OPENSEARCH=true
       - OPENSEARCH_HOST=opensearch
@@ -63,12 +64,34 @@ services:
         condition: service_started
     volumes: [ "../data:/data" ]
 
+  beat:
+    build:
+      context: ../
+      dockerfile: ingest/Dockerfile
+    entrypoint: [ "celery", "-A", "ingest.celery_app", "beat", "--loglevel=info" ]
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/n8n_pop
+      - PYTHONPATH=/app
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
+      - USE_OPENSEARCH=true
+      - OPENSEARCH_HOST=opensearch
+      - OPENSEARCH_PORT=9200
+      - OPENSEARCH_USER=admin
+      - OPENSEARCH_PASSWORD=StrongPassword123!
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes: [ "../data:/data" ]
+
   api:
     build:
       context: ../
       dockerfile: api/Dockerfile
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/n8n_pop
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/n8n_pop
     ports: [ "8000:8000" ]
     depends_on:
       postgres:

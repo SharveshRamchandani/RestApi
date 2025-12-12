@@ -35,12 +35,13 @@ Key variables:
 - `DATABASE_URL`: Postgres connection string (defaults set for Docker).
 
 ### 2. Run with Docker Compose
-Build and start all services (API, Worker, Postgres, Redis):
+Build and start all services (API, Worker, Beat, Postgres, Redis):
 ```bash
-docker-compose -f infra/docker-compose.yml up --build
+docker-compose --env-file .env -f infra/docker-compose.yml up -d --build
 ```
-- API: `http://localhost:8000`
-- API Health: `http://localhost:8000/health`
+- **API**: `http://localhost:8000`
+- **Docs**: `http://localhost:8000/docs` (Swagger UI)
+- **Automation**: The `beat` service starts automatically and runs tasks daily/weekly.
 
 ### 3. Initialize Database
 You can run the provided SQL schema or use Alembic (if configured):
