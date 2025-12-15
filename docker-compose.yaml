@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  # Database
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: n8n_user
+      POSTGRES_PASSWORD: n8n_password
+      POSTGRES_DB: n8n_workflows
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - n8n_net
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U n8n_user -d n8n_workflows" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis for Celery
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - n8n_net
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # API Service
+  api:
+    build:
+      context: .
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://n8n_user:n8n_password@db:5432/n8n_workflows
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - n8n_net
+
+  # Celery Worker
+  worker:
+    build:
+      context: .
+    command: celery -A ingest.celery_app worker --loglevel=info -B
+    volumes:
+      - .:/app
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://n8n_user:n8n_password@db:5432/n8n_workflows
+      - REDIS_URL=redis://redis:6379/0
+      # Keys - Replace with real ones in .env or via env_file
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY:-}
+      - DISCOURSE_API_KEY=${DISCOURSE_API_KEY:-}
+      - DISCOURSE_API_USER=${DISCOURSE_API_USER:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - n8n_net
+
+networks:
+  n8n_net:
+
+
+volumes:
+  db_data:

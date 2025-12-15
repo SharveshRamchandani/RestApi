@@ -1,13 +1,13 @@
 # n8n Workflow Popularity System
 
-Automated system to track popularity of n8n workflows across YouTube, Discourse, and Google. Includes ingestion workers, data normalization, and a REST API.
+Automated system to identify and track the popularity of n8n workflows by aggregating signals from YouTube, Discourse, and Google Trends. This project provides a "popularity score" to help users discover high-impact automation ideas.
 
 ## Project Structure
 
 ```
 n8n-popularity/
 ├─ ingest/           # Celery workers & fetchers
-│  ├─ fetchers/      # External API clients (YouTube, etc.)
+│  ├─ fetchers/      # External API clients (YouTube, Discourse, Google Trends)
 │  ├─ tasks.py       # Celery task definitions
 │  └─ normalize.py   # Data processing logic
 ├─ api/              # FastAPI application
@@ -19,51 +19,57 @@ n8n-popularity/
 └─ tests/            # Unit & Integration tests
 ```
 
+## Features
+
+- **Multi-Source Ingestion**: Fetches data from YouTube (tutorials), Discourse (community discussions), and Google Trends (search interest).
+- **Asynchronous Processing**: Uses Celery workers with Redis for scalable data fetching.
+- **Data Persistence**: Stores normalized data in PostgreSQL.
+- **Search & Analytics**: Integrates OpenSearch for full-text search capabilities.
+- **REST API**: FastAPI service to expose workflow data and popularity scores.
+- **Automated Scheduling**: periodic tasks handled by Celery Beat (Daily/Weekly).
+
+## Data Signals & Scoring
+
+The system aggregates signals to calculate a popularity score:
+
+1.  **YouTube**: View count, Likes, Comments.
+    - *Keywords*: "n8n tutorial", "n8n automation", "n8n workflow".
+2.  **Discourse**: Replies, Likes, Views.
+    - *Focus*: High-activity threads indicating complex or widely-needed workflows.
+3.  **Google Trends**: Search Interest Score (0-100).
+    - *Usage*: Provides a baseline market interest trend.
+
+**Scoring Logic (Planned):**
+`Score = (Views * 0.1) + (Likes * 2) + (Replies * 5) + (TrendScore * 10)`
+
 ## Quick Start
 
 ### Prerequisites
 - Docker & Docker Compose
-- Python 3.10+ (for local dev)
+- YouTube API Key
 
 ### 1. Setup Environment
-Copy the example environment file and fill in API keys:
+Copy the example environment file and configure your keys:
 ```bash
 cp .env.example .env
 ```
-Key variables:
-- `YOUTUBE_API_KEY`: Required for YouTube fetcher.
-- `DATABASE_URL`: Postgres connection string (defaults set for Docker).
+Update `.env` with your `YOUTUBE_API_KEY`.
 
 ### 2. Run with Docker Compose
-Build and start all services (API, Worker, Beat, Postgres, Redis):
+Build and start all services (API, Worker, Beat, Postgres, Redis, OpenSearch):
 ```bash
 docker-compose --env-file .env -f infra/docker-compose.yml up -d --build
 ```
+
 - **API**: `http://localhost:8000`
-- **Docs**: `http://localhost:8000/docs` (Swagger UI)
-- **Automation**: The `beat` service starts automatically and runs tasks daily/weekly.
+- **Docs**: `http://localhost:8000/docs`
+- **Dashboards**: OpenSearch Dashboards (if enabled) at `http://localhost:5601`
 
-### 3. Initialize Database
-You can run the provided SQL schema or use Alembic (if configured):
-```bash
-# Enter the postgres container
-docker-compose -f infra/docker-compose.yml exec postgres psql -U postgres -d n8n_pop -f /migrations/schema.sql
-# (Note: You might need to mount the migrations folder or run psql from host)
-```
-Alternatively, the API attempts to create tables on startup for this MVP.
-
-### 4. Trigger Ingestion
-Manually trigger a YouTube fetch task:
+### 3. Trigger Ingestion
+Manually trigger a task if needed (tasks run automatically via schedule):
 ```bash
 docker-compose -f infra/docker-compose.yml exec worker python -c "from ingest.tasks import task_fetch_youtube; print(task_fetch_youtube.apply(args=('US',)).get())"
 ```
-
-## API Endpoints
-
-- **GET /health**: Status check.
-- **GET /workflows**: List workflows with filters (`platform`, `country`, `sort`).
-- **GET /workflows/{id}**: Get details for a specific workflow.
-- **POST /workflows/import**: Internal Bulk Ingest.
 
 ## Development
 
@@ -72,10 +78,11 @@ docker-compose -f infra/docker-compose.yml exec worker python -c "from ingest.ta
 pytest tests/
 ```
 
-### Adding a new Fetcher
-1. Create `ingest/fetchers/new_source.py`
-2. Implement fetch logic returning canonical dicts.
-3. Add task in `ingest/tasks.py`.
+### API Endpoints
+- `GET /workflows`: List workflows with filtering (platform, country) and sorting.
+- `GET /workflows/{id}`: Detailed view of a workflow.
+- `POST /workflows/import`: Internal bulk ingestion endpoint.
+- `GET /metrics`: Prometheus metrics.
 
 ## License
 [License]

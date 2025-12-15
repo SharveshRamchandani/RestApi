@@ -15,3 +15,4 @@ psycopg2-binary
 python-json-logger
 prometheus-client
 opensearch-py
+google-api-python-client
